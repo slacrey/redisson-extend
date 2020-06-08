@@ -50,7 +50,7 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
         this.commandExecutor = commandExecutor;
         this.configName = suffixName(getName(), "config");
         this.maxBinaryBit = Integer.toBinaryString(maxRepeat).length();
-        this.defaultList = getPrevBooleanArray();
+        this.defaultList = getDefaultBooleanArray();
     }
 
     protected RedissonCountingBloomFilter(CommandExecutor commandExecutor, String name, int repeat) {
@@ -59,7 +59,7 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
         this.configName = suffixName(getName(), "config");
         this.maxRepeat = repeat;
         this.maxBinaryBit = Integer.toBinaryString(maxRepeat).length();
-        this.defaultList = getPrevBooleanArray();
+        this.defaultList = getDefaultBooleanArray();
     }
 
     protected RedissonCountingBloomFilter(Codec codec, CommandExecutor commandExecutor, String name) {
@@ -67,7 +67,7 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
         this.commandExecutor = commandExecutor;
         this.configName = suffixName(getName(), "config");
         this.maxBinaryBit = Integer.toBinaryString(maxRepeat).length();
-        this.defaultList = getPrevBooleanArray();
+        this.defaultList = getDefaultBooleanArray();
     }
 
     protected RedissonCountingBloomFilter(Codec codec, CommandExecutor commandExecutor, String name, int repeat) {
@@ -76,7 +76,7 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
         this.configName = suffixName(getName(), "config");
         this.maxRepeat = repeat;
         this.maxBinaryBit = Integer.toBinaryString(maxRepeat).length();
-        this.defaultList = getPrevBooleanArray();
+        this.defaultList = getDefaultBooleanArray();
     }
 
     private int optimalNumOfHashFunctions(long n, long m) {

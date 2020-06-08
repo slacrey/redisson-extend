@@ -19,18 +19,26 @@ public class RedissonExtendTest {
 
 
 //        RBloomFilter<String> bloomFilter = redissonClientExtend.getBloomFilter("test1");
-        RCountingBloomFilter<String> bloomFilter = redissonClientExtend.getCountingBloomFilter("test2", 9);
+        RCountingBloomFilter<String> bloomFilter = redissonClientExtend.getCountingBloomFilter("test2", 3);
 
         bloomFilter.delete();
-        bloomFilter.tryInit(100, 0.01D);
-        System.out.println("add:" + bloomFilter.add("test1"));
-        System.out.println("add:" + bloomFilter.add("test1"));
-        System.out.println("add:" + bloomFilter.add("test1"));
-        System.out.println("add:" + bloomFilter.add("test1"));
+        bloomFilter.tryInit(10000, 0.0001D);
+        long startTime = System.currentTimeMillis();
+        for (int i=0;i<1000;i++) {
+            bloomFilter.add("test1" + i);
+        }
+        long endTime = System.currentTimeMillis();
+        System.out.println("add time:" + (endTime - startTime));
+
+        startTime = System.currentTimeMillis();
+        for (int i=0; i< 1000; i++) {
+            bloomFilter.contains("test1" + i);
+        }
+        endTime = System.currentTimeMillis();
+
+        System.out.println("contains time:" + (endTime - startTime));
         System.out.println("remove:" + bloomFilter.remove("test1"));
         System.out.println("remove:" + bloomFilter.remove("test1"));
-        System.out.println("remove:" + bloomFilter.remove("test1"));
-//        System.out.println("remove:" + bloomFilter.remove("test1"));
         System.out.println("contains:" + bloomFilter.contains("test1"));
 
     }
