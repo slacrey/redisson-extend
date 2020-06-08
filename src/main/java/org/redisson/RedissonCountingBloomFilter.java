@@ -23,6 +23,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static java.lang.Math.abs;
+
 /**
  * Counting Bloom filter based on Highway 128-bit hash.
  *
@@ -37,6 +39,7 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
     // 最大计数
     private volatile int maxRepeat = DEFAULT_MAX_REPEAT;
     private volatile int maxBinaryBit = Integer.toBinaryString(maxRepeat).length();
+    private volatile Boolean[] defaultList;
     private volatile int hashIterations;
 
     private final CommandExecutor commandExecutor;
@@ -46,6 +49,8 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
         super(commandExecutor, name);
         this.commandExecutor = commandExecutor;
         this.configName = suffixName(getName(), "config");
+        this.maxBinaryBit = Integer.toBinaryString(maxRepeat).length();
+        this.defaultList = getPrevBooleanArray();
     }
 
     protected RedissonCountingBloomFilter(CommandExecutor commandExecutor, String name, int repeat) {
@@ -53,12 +58,16 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
         this.commandExecutor = commandExecutor;
         this.configName = suffixName(getName(), "config");
         this.maxRepeat = repeat;
+        this.maxBinaryBit = Integer.toBinaryString(maxRepeat).length();
+        this.defaultList = getPrevBooleanArray();
     }
 
     protected RedissonCountingBloomFilter(Codec codec, CommandExecutor commandExecutor, String name) {
         super(codec, commandExecutor, name);
         this.commandExecutor = commandExecutor;
         this.configName = suffixName(getName(), "config");
+        this.maxBinaryBit = Integer.toBinaryString(maxRepeat).length();
+        this.defaultList = getPrevBooleanArray();
     }
 
     protected RedissonCountingBloomFilter(Codec codec, CommandExecutor commandExecutor, String name, int repeat) {
@@ -66,6 +75,8 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
         this.commandExecutor = commandExecutor;
         this.configName = suffixName(getName(), "config");
         this.maxRepeat = repeat;
+        this.maxBinaryBit = Integer.toBinaryString(maxRepeat).length();
+        this.defaultList = getPrevBooleanArray();
     }
 
     private int optimalNumOfHashFunctions(long n, long m) {
@@ -187,11 +198,14 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
 
                 val = resultList.stream().filter(o -> o).findFirst().orElse(false);
                 if (!val) {
-                    return initCheckResult(false, Arrays.asList(defaultArray));
+                    return initCheckResult(false, defaultArray);
                 }
             }
 
-            return initCheckResult(true, mglist.get(0));
+            List<Boolean> resultList = mglist.get(0);
+            Boolean[] resultBoolArray = new Boolean[resultList.size()];
+            resultList.toArray(resultBoolArray);
+            return initCheckResult(true, resultBoolArray);
 
         } catch (RedisException e) {
             if (!e.getMessage().contains("Counting Bloom filter config has been changed")) {
@@ -453,10 +467,10 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
     }
 
 
-    private CheckResult initCheckResult(Boolean result, List<Boolean> resultList) {
+    private CheckResult initCheckResult(Boolean result, Boolean[] resultList) {
         return new CheckResult() {
 
-            private String binary = resultList.stream()
+            private String binary = Arrays.stream(resultList)
                     .map(item -> item ? "1" : "0").collect(Collectors.joining());
             private int resultInt = Integer.parseInt(binary, 2);
 
@@ -468,7 +482,7 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
             @Override
             public Boolean[] result() {
 
-                return intConvert2BoolArray(resultInt);
+                return resultList;
             }
 
             @Override
@@ -478,7 +492,7 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
                 if (increaseInt > maxRepeat) {
                     return null;
                 }
-                return intConvert2BoolArray(increaseInt);
+                return addBinary2Array(resultList, defaultList);
             }
 
             @Override
@@ -488,34 +502,60 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
                 if (subtractInt < 0) {
                     return null;
                 }
-                return intConvert2BoolArray(subtractInt);
+                return subBinary2Array(resultList, defaultList);
             }
         };
     }
 
-    private Boolean[] intConvert2BoolArray(int tempInt) {
+    private Boolean[] addBinary2Array(Boolean[] a, Boolean[] b) {
 
-        String binary = Integer.toBinaryString(tempInt);
-        int binaryBit = binary.length();
-        Boolean[] subtractArray = new Boolean[maxBinaryBit];
-        if (binaryBit < maxBinaryBit) {
-            int n = 1;
-            for (int i = maxBinaryBit-1; i >= 0; i--) {
-                if (n <= binaryBit) {
-                    subtractArray[i] = binary.charAt(binaryBit - n) == '1';
-                    n++;
-                } else {
-                    subtractArray[i] = false;
-                }
-            }
-        } else if (binaryBit == maxBinaryBit) {
-            for (int i = 0; i < binary.length(); i++) {
-                subtractArray[i] = binary.charAt(i) == '1';
-            }
-        } else {
-            return null;
+        Boolean[] result = new Boolean[a.length];
+        int s = 0;
+
+        int i = a.length - 1;
+        int j = b.length - 1;
+        while (i >= 0 || j >= 0 || s == 1) {
+
+            s += ((i >= 0) ? (a[i] ? 1 : 0) : 0);
+            s += ((j >= 0) ? (b[j] ? 1 : 0) : 0);
+
+            result[i] = s % 2 == 1;
+
+            s /= 2;
+
+            i--;
+            j--;
         }
-        return subtractArray;
+
+        return result;
+    }
+
+    private Boolean[] subBinary2Array(Boolean[] a, Boolean[] b) {
+
+        Boolean[] result = new Boolean[a.length];
+
+        int s = 0;
+        int s1 = 0;
+        int i = a.length - 1;
+        int j = b.length - 1;
+        while (i >= 0 || j >= 0) {
+
+            s += ((i >= 0) ? (a[i] ? 1 : 0) : 0);
+            s -= ((j >= 0) ? (b[j] ? 1 : 0) : 0);
+
+            result[i] = (abs(s) % 2) == 1;
+
+            if (s == -2) {
+                s += 1;
+            }
+            if (s > 0) {
+                s /= 2;
+            }
+            i--;
+            j--;
+        }
+
+        return result;
     }
 
     interface CheckResult {
