@@ -35,11 +35,11 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
 
 
     private int DEFAULT_MAX_REPEAT = 7;
+    private Boolean[] defaultList;
     private volatile long size;
     // 最大计数
     private volatile int maxRepeat = DEFAULT_MAX_REPEAT;
-    private volatile int maxBinaryBit = Integer.toBinaryString(maxRepeat).length();
-    private volatile Boolean[] defaultList;
+    private volatile int maxBinaryBit;
     private volatile int hashIterations;
 
     private final CommandExecutor commandExecutor;
