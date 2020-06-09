@@ -7,7 +7,7 @@ import org.redisson.config.Config;
 
 /**
  * @author linfeng
- * @date 2020-06-06
+ * @since 2020-06-06
  **/
 public class RedissonExtend extends Redisson implements RedissonClientExtend {
 

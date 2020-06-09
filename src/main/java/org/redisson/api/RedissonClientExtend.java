@@ -4,7 +4,7 @@ import org.redisson.client.codec.Codec;
 
 /**
  * @author linfeng
- * @date 2020-06-06
+ * @since 2020-06-06
  **/
 public interface RedissonClientExtend extends RedissonClient {
 
