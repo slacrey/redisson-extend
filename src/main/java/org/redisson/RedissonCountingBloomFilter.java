@@ -50,7 +50,7 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
         this.commandExecutor = commandExecutor;
         this.configName = suffixName(getName(), "config");
         this.maxBinaryBit = Integer.toBinaryString(maxRepeat).length();
-        this.defaultList = getDefaultBooleanArray();
+        this.defaultList = defaultOneData();
     }
 
     protected RedissonCountingBloomFilter(CommandExecutor commandExecutor, String name, int repeat) {
@@ -59,7 +59,7 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
         this.configName = suffixName(getName(), "config");
         this.maxRepeat = repeat;
         this.maxBinaryBit = Integer.toBinaryString(maxRepeat).length();
-        this.defaultList = getDefaultBooleanArray();
+        this.defaultList = defaultOneData();
     }
 
     protected RedissonCountingBloomFilter(Codec codec, CommandExecutor commandExecutor, String name) {
@@ -67,7 +67,7 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
         this.commandExecutor = commandExecutor;
         this.configName = suffixName(getName(), "config");
         this.maxBinaryBit = Integer.toBinaryString(maxRepeat).length();
-        this.defaultList = getDefaultBooleanArray();
+        this.defaultList = defaultOneData();
     }
 
     protected RedissonCountingBloomFilter(Codec codec, CommandExecutor commandExecutor, String name, int repeat) {
@@ -76,7 +76,7 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
         this.configName = suffixName(getName(), "config");
         this.maxRepeat = repeat;
         this.maxBinaryBit = Integer.toBinaryString(maxRepeat).length();
-        this.defaultList = getDefaultBooleanArray();
+        this.defaultList = defaultOneData();
     }
 
     private int optimalNumOfHashFunctions(long n, long m) {
@@ -105,25 +105,18 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
 
         while (true) {
 
-            Boolean[] prevArray = getPrevBooleanArray();
-            Boolean[] defaultArray = getDefaultBooleanArray();
-
-            CheckResult checkResult = readBit(hashes, defaultArray);
-
-            if (checkResult != null && checkResult.success()) {
-
-                defaultArray = checkResult.increase();
-                prevArray = checkResult.result();
+            Boolean[] entryData;
+            ReadResult readResult = readData(hashes);
+            if (readResult != null && readResult.success()) {
+                // 获取已经+1的数组
+                entryData = readResult.increase();
+            } else {
+                entryData = defaultOneData();
             }
-
-            if (defaultArray == null) {
-                return false;
+            Boolean writeSuccess = writeData(hashes, entryData);
+            if (writeSuccess != null) {
+                return writeSuccess;
             }
-            Boolean x = writeBit(hashes, defaultArray, prevArray);
-            if (x != null) {
-                return x;
-            }
-
         }
     }
 
@@ -156,14 +149,14 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
         long[] hashes = hash(object);
 
         while (true) {
-            CheckResult checkResult = readBit(hashes, getDefaultBooleanArray());
-            if (checkResult != null) {
-                return checkResult.success();
+            ReadResult readResult = readData(hashes);
+            if (readResult != null) {
+                return readResult.success();
             }
         }
     }
 
-    private CheckResult readBit(long[] hashes, Boolean[] defaultArray) {
+    private ReadResult readData(long[] hashes) {
         if (size == 0) {
             readConfig();
         }
@@ -188,21 +181,23 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
             List<Boolean> subResult = result.subList(1, result.size() - maxCount);
 
             int limit = subResult.size() / maxCount;
-            List<List<Boolean>> mglist = new ArrayList<>(limit);
-            Stream.iterate(0, n -> n + 1).limit(limit).forEach(i -> {
-                mglist.add(subResult.stream().skip(i * maxCount).limit(maxCount).collect(Collectors.toList()));
-            });
+            List<List<Boolean>> splitList = new ArrayList<>(limit);
+            Stream.iterate(0, n -> n + 1)
+                    .limit(limit)
+                    .forEach(i -> splitList.add(subResult.stream().skip((long) (i * maxCount)).limit(maxCount)
+                            .collect(Collectors.toList())));
 
-            Boolean val;
-            for (List<Boolean> resultList : mglist) {
+            boolean val;
+            for (List<Boolean> resultList : splitList) {
 
-                val = resultList.stream().filter(o -> o).findFirst().orElse(false);
-                if (!val) {
-                    return initCheckResult(false, defaultArray);
+                // 全部为false，则返回true, 标识没有值
+                val = resultList.stream().noneMatch(item -> item);
+                if (val) {
+                    return initCheckResult(false, null);
                 }
             }
 
-            List<Boolean> resultList = mglist.get(0);
+            List<Boolean> resultList = splitList.get(0);
             Boolean[] resultBoolArray = new Boolean[resultList.size()];
             resultList.toArray(resultBoolArray);
             return initCheckResult(true, resultBoolArray);
@@ -215,7 +210,7 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
         return null;
     }
 
-    private Boolean writeBit(long[] hashes, Boolean[] writeValue, Boolean[] prevArray) {
+    private Boolean writeData(long[] hashes, Boolean[] writeValue) {
 
         if (size == 0) {
             readConfig();
@@ -242,19 +237,20 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
 
             int limit = subResult.size() / maxCount;
             List<List<Boolean>> subList = new ArrayList<>(limit);
-            Stream.iterate(0, n -> n + 1).limit(limit).forEach(i -> {
-                subList.add(subResult.stream().skip(i * maxCount).limit(maxCount).collect(Collectors.toList()));
-            });
+            Stream.iterate(0, n -> n + 1)
+                    .limit(limit)
+                    .forEach(i -> subList.add(subResult.stream().skip((long) (i * maxCount)).limit(maxCount)
+                            .collect(Collectors.toList())));
 
+            boolean val;
             for (List<Boolean> resultList : subList) {
-                for (int i = 0; i < resultList.size(); i++) {
-                    if (!prevArray[i].equals(resultList.get(i))) {
-                        return false;
-                    }
+                // 全部为false，则返回true
+                val = resultList.stream().noneMatch(item -> item);
+                if (val) {
+                    return true;
                 }
             }
-
-            return true;
+            return false;
         } catch (RedisException e) {
             if (!e.getMessage().contains("Bloom filter config has been changed")) {
                 throw e;
@@ -271,35 +267,25 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
         while (true) {
 
             boolean exist = false;
-            Boolean[] defaultArray = getDefaultBooleanArray();
-            Boolean[] prevArray = getPrevBooleanArray();
-            CheckResult checkResult = readBit(hashes, defaultArray);
+            Boolean[] defaultArray = defaultOneData();
+            ReadResult readResult = readData(hashes);
 
-            if (checkResult != null && checkResult.success()) {
+            if (readResult != null && readResult.success()) {
                 exist = true;
-                defaultArray = checkResult.subtract();
-                prevArray = checkResult.result();
+                defaultArray = readResult.subtract();
             }
 
             if (!exist) {
                 return false;
             }
-            Boolean x = writeBit(hashes, defaultArray, prevArray);
+            Boolean x = writeData(hashes, defaultArray);
             if (x != null) {
                 return x;
             }
         }
     }
 
-    private Boolean[] getPrevBooleanArray() {
-        Boolean[] defaultArray = new Boolean[maxBinaryBit];
-        for (int j = 0; j < maxBinaryBit; j++) {
-            defaultArray[j] = Boolean.FALSE;
-        }
-        return defaultArray;
-    }
-
-    private Boolean[] getDefaultBooleanArray() {
+    private Boolean[] defaultOneData() {
         Boolean[] defaultArray = new Boolean[maxBinaryBit];
         for (int j = 0; j < maxBinaryBit; j++) {
             defaultArray[j] = Boolean.FALSE;
@@ -319,7 +305,7 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
                 "local size = redis.call('hget', KEYS[1], 'size');" +
                         "local hashIterations = redis.call('hget', KEYS[1], 'hashIterations');" +
                         "assert(size == ARGV[1] and hashIterations == ARGV[2], 'Bloom filter config has been changed')",
-                Arrays.<Object>asList(configName), size, hashIterations);
+                Arrays.asList(configName), size, hashIterations);
     }
 
     @Override
@@ -343,7 +329,7 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
 
     @Override
     public RFuture<Long> sizeInMemoryAsync() {
-        List<Object> keys = Arrays.<Object>asList(getName(), configName);
+        List<Object> keys = Arrays.asList(getName(), configName);
         return super.sizeInMemoryAsync(keys);
     }
 
@@ -391,7 +377,7 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
                 "local size = redis.call('hget', KEYS[1], 'size');" +
                         "local hashIterations = redis.call('hget', KEYS[1], 'hashIterations');" +
                         "assert(size == false and hashIterations == false, 'Bloom filter config has been changed')",
-                Arrays.<Object>asList(configName), size, hashIterations);
+                Arrays.asList(configName), size, hashIterations);
         executorService.writeAsync(configName, StringCodec.INSTANCE,
                 new RedisCommand<Void>("HMSET", new VoidReplayConvertor()), configName,
                 "size", size, "hashIterations", hashIterations,
@@ -414,7 +400,7 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
         return commandExecutor.evalWriteAsync(getName(), LongCodec.INSTANCE, RedisCommands.EVAL_BOOLEAN,
                 "redis.call('pexpire', KEYS[1], ARGV[1]); " +
                         "return redis.call('pexpire', KEYS[2], ARGV[1]); ",
-                Arrays.<Object>asList(getName(), configName),
+                Arrays.asList(getName(), configName),
                 timeUnit.toMillis(timeToLive));
     }
 
@@ -423,7 +409,7 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
         return commandExecutor.evalWriteAsync(getName(), LongCodec.INSTANCE, RedisCommands.EVAL_BOOLEAN,
                 "redis.call('pexpireat', KEYS[1], ARGV[1]); " +
                         "return redis.call('pexpireat', KEYS[2], ARGV[1]); ",
-                Arrays.<Object>asList(getName(), configName),
+                Arrays.asList(getName(), configName),
                 timestamp);
     }
 
@@ -432,7 +418,7 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
         return commandExecutor.evalWriteAsync(getName(), LongCodec.INSTANCE, RedisCommands.EVAL_BOOLEAN,
                 "redis.call('persist', KEYS[1]); " +
                         "return redis.call('persist', KEYS[2]); ",
-                Arrays.<Object>asList(getName(), configName));
+                Arrays.asList(getName(), configName));
     }
 
     @Override
@@ -467,30 +453,25 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
     }
 
 
-    private CheckResult initCheckResult(Boolean result, Boolean[] resultList) {
-        return new CheckResult() {
-
-            private String binary = Arrays.stream(resultList)
-                    .map(item -> item ? "1" : "0").collect(Collectors.joining());
-            private int resultInt = Integer.parseInt(binary, 2);
+    private ReadResult initCheckResult(boolean success, Boolean[] resultList) {
+        return new ReadResult() {
 
             @Override
-            public Boolean success() {
-                return result;
-            }
-
-            @Override
-            public Boolean[] result() {
-
-                return resultList;
+            public boolean success() {
+                return success;
             }
 
             @Override
             public Boolean[] increase() {
 
+                String binary = Arrays.stream(resultList)
+                        .map(item -> Boolean.TRUE.equals(item) ? "1" : "0")
+                        .collect(Collectors.joining());
+                int resultInt = Integer.parseInt(binary, 2);
+
                 int increaseInt = resultInt + 1;
                 if (increaseInt > maxRepeat) {
-                    return null;
+                    return new Boolean[0];
                 }
                 return addBinary2Array(resultList, defaultList);
             }
@@ -498,9 +479,14 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
             @Override
             public Boolean[] subtract() {
 
+                String binary = Arrays.stream(resultList)
+                        .map(item -> Boolean.TRUE.equals(item) ? "1" : "0")
+                        .collect(Collectors.joining());
+                int resultInt = Integer.parseInt(binary, 2);
+
                 int subtractInt = resultInt - 1;
                 if (subtractInt < 0) {
-                    return null;
+                    return new Boolean[0];
                 }
                 return subBinary2Array(resultList, defaultList);
             }
@@ -558,7 +544,7 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
         return result;
     }
 
-    interface CheckResult {
+    interface ReadResult {
 
         /**
          * return success
@@ -566,14 +552,7 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
          * @return <code>true</code> find entry is success
          * <code>false</code> find entry is not found
          */
-        Boolean success();
-
-        /**
-         * return query element
-         *
-         * @return Array to store after adding the same element
-         */
-        Boolean[] result();
+        boolean success();
 
         /**
          * array to store after adding the same element

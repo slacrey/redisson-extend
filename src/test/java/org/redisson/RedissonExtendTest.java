@@ -1,6 +1,7 @@
 package org.redisson;
 
 
+import org.redisson.api.RBloomFilter;
 import org.redisson.api.RCountingBloomFilter;
 import org.redisson.api.RedissonClientExtend;
 import org.redisson.config.Config;
@@ -36,10 +37,12 @@ public class RedissonExtendTest {
         }
         endTime = System.currentTimeMillis();
 
+//        bloomFilter.add("test1" + 0);
         System.out.println("contains time:" + (endTime - startTime));
-        System.out.println("remove:" + bloomFilter.remove("test1"));
-        System.out.println("remove:" + bloomFilter.remove("test1"));
+        System.out.println("add:" + bloomFilter.add("test1"));
         System.out.println("contains:" + bloomFilter.contains("test1"));
+//        System.out.println("remove:" + bloomFilter.remove("test1"));
+
 
     }
 

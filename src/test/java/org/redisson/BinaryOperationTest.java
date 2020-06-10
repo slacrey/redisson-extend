@@ -1,5 +1,8 @@
 package org.redisson;
 
+import java.util.Arrays;
+import java.util.stream.Collectors;
+
 import static java.lang.Math.abs;
 
 public class BinaryOperationTest {
@@ -7,12 +10,12 @@ public class BinaryOperationTest {
     public static void main(String[] args) {
 
         String binary = "";
-        String a = "111";
+        String a = "000";
         String b = "001";
         long startTime;
         long endTime;
 
-        Boolean[] al = {true, false, false};
+        Boolean[] al = {false, false, false};
         Boolean[] bl = {false, false, true};
 
         startTime = System.nanoTime();
@@ -26,10 +29,16 @@ public class BinaryOperationTest {
         System.out.println("subBinary2(" + a + ", " + b + "):" + binary + " time:" + (endTime - startTime));
 
         startTime = System.nanoTime();
-        int addInt = Integer.parseInt(al.toString(), 2);
         Boolean[] binary2List = addBinary2List(al, bl);
         endTime = System.nanoTime();
-        System.out.println("subBinary2(" + al + ", " + bl + "):" + binary2List + " time:" + (endTime - startTime));
+        System.out.println("subBinary2(" + al.toString() + ", " + bl.toString() + "):" + Arrays.asList(binary2List).stream().map(item -> item.toString()).collect(Collectors.joining(",")) + " time:" + (endTime - startTime));
+
+        startTime = System.nanoTime();
+        binary2List = subBinary2Array(al, bl);
+        endTime = System.nanoTime();
+        System.out.println("subBinary2(" + al.toString() + ", " + bl.toString() + "):" + Arrays.asList(binary2List).stream().map(item -> item.toString()).collect(Collectors.joining(",")) + " time:" + (endTime - startTime));
+
+
     }
 
     public static String addBinary3(String a, String b) {
