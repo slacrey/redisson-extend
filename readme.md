@@ -3,6 +3,15 @@
 ### Reference Documentation
 扩展了redisson 2.x版本 添加可计数布隆过滤器
 
+### 引入依赖包
+```xml
+<dependency>
+  <groupId>com.github.slacrey</groupId>
+  <artifactId>redisson-extend</artifactId>
+  <version>1.1.2150</version>
+</dependency>
+```
+
 ### 创建Redisson连接
 ```java
 Config config = new Config();
