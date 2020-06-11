@@ -11,7 +11,7 @@
 
     <groupId>com.github.slacrey</groupId>
     <artifactId>redisson-extend</artifactId>
-    <version>1.1.215</version>
+    <version>1.1.2150</version>
     <name>redisson-extend</name>
     <description>redisson extend</description>
 
@@ -58,11 +58,6 @@
             <groupId>org.redisson</groupId>
             <artifactId>redisson</artifactId>
             <version>2.15.0</version>
-        </dependency>
-        <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
-            <version>20.0</version>
         </dependency>
 
     </dependencies>
