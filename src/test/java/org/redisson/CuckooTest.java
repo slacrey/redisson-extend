@@ -15,24 +15,37 @@ import static java.util.Objects.hash;
 public class CuckooTest {
 
     public static void main(String[] args) {
-        final long hash64 = hash64("h");
-        final int hash1 = (int) hash64;
-        final int hash2 = (int) (hash64 >>> 32);
 
-        final int fingerprint = fingerPrint(hash2, 100);
 
-        final long index1 = index(hash1, 10L);
-        final long index2 = altIndex(index1, fingerprint, 10L);
-        final long index3 = altIndex(index2, fingerprint, 10L);
 
-        System.out.println(hash1);
-        System.out.println(index1);
-        System.out.println(index2);
-        System.out.println(index3);
+        CuckooFilter cuckooFilter = new CuckooFilter(100);
+
+        cuckooFilter.insert("sds");
+
+//        final long hash64 = hash64("h");
+//        final int hash1 = (int) hash64;
+//        final int hash2 = (int) (hash64 >>> 32);
+//
+//        final int fingerprint = fingerPrint(hash2, 100);
+//
+//        final long index1 = index(hash1, 10L);
+//        final long index2 = altIndex(index1, fingerprint, 10L);
+//        final long index3 = altIndex(index2, fingerprint, 10L);
+//
+//        System.out.println(hash1);
+//        System.out.println(index1);
+//        System.out.println(index2);
+//        System.out.println(index3);
+//        System.out.println(getWord(640));
+//        System.out.println(getWord(342343333));
+
 
 
     }
 
+    private static int getWord(final long bitIndex) {
+        return (int) (bitIndex >> 6);// /64
+    }
 
     static long index(int hash, long m) {
         return mod(hash, m);
