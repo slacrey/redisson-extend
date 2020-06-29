@@ -34,7 +34,7 @@ import static java.lang.Math.abs;
 public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements RCountingBloomFilter<T> {
 
 
-    private int DEFAULT_MAX_REPEAT = 7;
+    private int DEFAULT_MAX_REPEAT = 3;
     private Boolean[] defaultList;
     private volatile long size;
     // 最大计数
@@ -190,6 +190,9 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
             boolean val;
             for (List<Boolean> resultList : splitList) {
 
+                if (resultList == null) {
+                    System.out.println("=================================0000000000000000000");
+                }
                 // 全部为false，则返回true, 标识没有值
                 val = resultList.stream().noneMatch(item -> item);
                 if (val) {
@@ -367,7 +370,7 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
         if (size == 0) {
             throw new IllegalArgumentException("Counting Bloom filter calculated size is " + size);
         }
-        if (size > getMaxSize()) {
+        if (size * maxBinaryBit > getMaxSize()) {
             throw new IllegalArgumentException("Counting Bloom filter size can't be greater than " + getMaxSize() + ". But calculated size is " + size);
         }
         hashIterations = optimalNumOfHashFunctions(expectedInsertions, size);
