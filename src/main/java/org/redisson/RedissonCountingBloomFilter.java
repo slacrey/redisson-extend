@@ -203,7 +203,7 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
             return initCheckResult(true, resultBoolArray);
 
         } catch (RedisException e) {
-            if (!e.getMessage().contains("Counting Bloom filter config has been changed")) {
+            if (!e.getMessage().contains("Bloom filter config has been changed")) {
                 throw e;
             }
         }
@@ -227,7 +227,7 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
         RBitSetAsync bs = createBitSet(executorService);
         for (long[] index : indexes) {
             for (int j = 0; j < maxCount; j++) {
-                bs.setAsync(index[j], writeValue[j]);
+                bs.setAsync(index[j], writeValue[j] == null ? false : writeValue[j]);
             }
         }
         try {
@@ -385,7 +385,7 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
         try {
             executorService.execute();
         } catch (RedisException e) {
-            if (!e.getMessage().contains("Counting Bloom filter config has been changed")) {
+            if (!e.getMessage().contains("Bloom filter config has been changed")) {
                 throw e;
             }
             readConfig();
@@ -464,6 +464,9 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
             @Override
             public Boolean[] increase() {
 
+                if (resultList == null) {
+                    return new Boolean[maxBinaryBit];
+                }
                 String binary = Arrays.stream(resultList)
                         .map(item -> Boolean.TRUE.equals(item) ? "1" : "0")
                         .collect(Collectors.joining());
@@ -471,7 +474,7 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
 
                 int increaseInt = resultInt + 1;
                 if (increaseInt > maxRepeat) {
-                    return new Boolean[0];
+                    return new Boolean[maxBinaryBit];
                 }
                 return addBinary2Array(resultList, defaultList);
             }
@@ -479,6 +482,9 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
             @Override
             public Boolean[] subtract() {
 
+                if (resultList == null) {
+                    return new Boolean[maxBinaryBit];
+                }
                 String binary = Arrays.stream(resultList)
                         .map(item -> Boolean.TRUE.equals(item) ? "1" : "0")
                         .collect(Collectors.joining());
@@ -486,7 +492,7 @@ public class RedissonCountingBloomFilter<T> extends RedissonExpirable implements
 
                 int subtractInt = resultInt - 1;
                 if (subtractInt < 0) {
-                    return new Boolean[0];
+                    return new Boolean[maxBinaryBit];
                 }
                 return subBinary2Array(resultList, defaultList);
             }
