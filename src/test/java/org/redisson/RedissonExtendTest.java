@@ -22,19 +22,19 @@ public class RedissonExtendTest {
 //        RBloomFilter<String> bloomFilter = redissonClientExtend.getBloomFilter("test1");
         RCountingBloomFilter<String> bloomFilter = redissonClientExtend.getCountingBloomFilter("test2", 3);
 
-//        bloomFilter.delete();
-        bloomFilter.tryInit(1000, 0.001D);
-        bloomFilter.tryInit(1000, 0.001D);
+        //90,000,000
+        bloomFilter.delete();
+        bloomFilter.tryInit(50000000, 0.0000001D);
 
         long startTime = System.currentTimeMillis();
-        for (int i=0;i<100;i++) {
+        for (int i=0;i<100000;i++) {
             bloomFilter.add("test1" + i);
         }
         long endTime = System.currentTimeMillis();
         System.out.println("add time:" + (endTime - startTime));
 
         startTime = System.currentTimeMillis();
-        for (int i=0; i< 100; i++) {
+        for (int i=0; i< 100000; i++) {
             bloomFilter.contains("test1" + i);
         }
         endTime = System.currentTimeMillis();
